@@ -14,3 +14,13 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+
+Route::get('auth/login','Auth\AuthenticateController@login');
+
+
+Route::group(['middleware' => ['jwt.auth']], function() {
+    Route::get('test', function(){
+        return response()->json(['foo'=>'bar']);
+    });
+});
