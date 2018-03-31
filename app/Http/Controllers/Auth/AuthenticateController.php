@@ -38,4 +38,24 @@ class AuthenticateController extends Controller
         // all good so return the token
         return response()->json(['success' => true, 'data'=> [ 'token' => $token ]]);
     }
+
+    /**
+     * Log out
+     * Invalidate the token, so user cannot use it anymore
+     * They have to relogin to get a new token
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function logout(Request $request) {
+        $this->validate($request, ['token' => 'required']);
+
+        try {
+            JWTAuth::invalidate($request->input('token'));
+            return response()->json(['success' => true, 'message'=> "You have successfully logged out."]);
+        } catch (JWTException $e) {
+            // something went wrong whilst attempting to encode the token
+            return response()->json(['success' => false, 'error' => 'Failed to logout, please try again.'], 500);
+        }
+    }
 }

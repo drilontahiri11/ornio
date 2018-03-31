@@ -19,8 +19,13 @@ Route::get('/', function () {
 Route::get('auth/login','Auth\AuthenticateController@login');
 
 
-Route::group(['middleware' => ['jwt.auth']], function() {
-    Route::get('test', function(){
-        return response()->json(['foo'=>'bar']);
-    });
+Route::group(['prefix'=>'api/v1/','middleware' => ['jwt.auth']], function() {
+    Route::get('logout','Auth\AuthenticateController@logout');
+
+    Route::get('dashboard','DashboardController@index');
+
+    Route::get('vacations','VacationController@index');
+    Route::post('vacation/{id}/accept','VacationController@acceptRequest');
+    Route::post('vacation/{id}/deny','VacationController@denyRequest');
+    Route::post('vacation/new','VacationController@newVacationRequest');
 });
