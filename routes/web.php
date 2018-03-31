@@ -28,4 +28,6 @@ Route::group(['prefix'=>'api/v1/','middleware' => ['jwt.auth']], function() {
     Route::post('vacation/{id}/accept','VacationController@acceptRequest');
     Route::post('vacation/{id}/deny','VacationController@denyRequest');
     Route::post('vacation/new','VacationController@newVacationRequest');
+
+    Route::get('vacation/used-days','VacationController@getEmployeeUsedVacationDays');
 });

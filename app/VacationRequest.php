@@ -47,7 +47,8 @@ class VacationRequest extends Model
         $newRequest->description=$data['description'];
         $newRequest->status=static::STATUS_PENDING;
         $newRequest->user_id=auth()->user()->id;
-        return $newRequest->save();
+        $newRequest->save();
+        return $newRequest;
     }
 
 

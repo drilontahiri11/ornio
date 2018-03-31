@@ -1,6 +1,10 @@
 <?php namespace app\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Notifications\NewVacationRequest;
+use App\Notifications\VacationRequestAccepted;
+use App\Notifications\VacationRequestDenied;
+use App\VacationDays;
 use App\VacationRequest;
 use Illuminate\Http\Request;
 use App\User;
@@ -29,20 +33,29 @@ class VacationController extends Controller
      */
     public function newVacationRequest(Request $request)
     {
-        $data = $request->only('start_date', 'end_date','description');
-        $rules = [
-            'start_date' => 'required|date|date_format:m-d-Y',
-            'end_date' => 'required|date|date_format:m-d-Y',
-        ];
-        $validator = Validator::make($data, $rules);
-        if($validator->fails()) {
-            return response()->json(['success'=> false, 'error'=> $validator->messages()]);
+        $admin=User::where('role_id',User::ROLE_ADIMN)->first();
+        $usedDays=0;
+        $record=VacationDays::getUsedVacationDaysForEmployee();
+        if(!is_null($record)){
+            $usedDays=$record->days;
         }
-        if(VacationRequest::saveVacationRequest($data)){
-            //TODO::EVENT/EMAIL FOR ADMIN
-            return response()->json(['success'=> true, 'message'=> 'Your vacation request has been sent to Manager.']);
+
+        if($usedDays>=VacationDays::MAX_DAYS){
+            return response()->json(['success'=> false, 'error'=> 'You have used all your vacation days']);
         }else{
-            return response()->json(['success'=> false, 'error'=> 'Something went wrong!']);
+            $data = $request->only('start_date', 'end_date','description');
+            $rules = [
+                'start_date' => 'required|date|date_format:m-d-Y',
+                'end_date' => 'required|date|date_format:m-d-Y',
+            ];
+            $validator = Validator::make($data, $rules);
+            if($validator->fails()) {
+                return response()->json(['success'=> false, 'error'=> $validator->messages()]);
+            }
+            $vacationRequest=VacationRequest::saveVacationRequest($data);
+
+            $admin->notify(new NewVacationRequest($vacationRequest));
+            return response()->json(['success'=> true, 'message'=> 'Your vacation request has been sent to Manager.']);
         }
     }
 
@@ -56,9 +69,15 @@ class VacationController extends Controller
         $request=VacationRequest::find($id);
         if(!is_null($request)){
             $request->status=VacationRequest::STATUS_ACCEPTED;
-            $request->save();
-            //TODO::EVENT/EMAIL FOR EMPLOYE
-            return response()->json(['success'=> true, 'message'=> 'Vacation Request Accepted.']);
+            $employee=User::find($request->user_id);
+            if($request->save()){
+                VacationDays::saveDaysForEmployee($request);
+                $employee->notify(new VacationRequestAccepted($request));
+                return response()->json(['success'=> true, 'message'=> 'Vacation Request Accepted.']);
+            }else{
+                return response()->json(['success'=> false, 'error'=> 'Something went wrong!']);
+            }
+
         }else{
             return response()->json(['success'=> false, 'error'=> 'Record Not Found!']);
         }
@@ -74,12 +93,30 @@ class VacationController extends Controller
         $request=VacationRequest::find($id);
         if(!is_null($request)){
             $request->status=VacationRequest::STATUS_DENIED;
-            $request->save();
-            //TODO::EVENT/EMAIL FOR EMPLOYE
-            return response()->json(['success'=> true, 'message'=> 'Vacation Request Denied.']);
+            $employee=User::find($request->user_id);
+            if($request->save()){
+                $employee->notify(new VacationRequestDenied($request));
+                return response()->json(['success'=> true, 'message'=> 'Vacation Request Denied.']);
+            }else{
+                return response()->json(['success'=> false, 'error'=> 'Something went wrong!']);
+            }
         }else{
             return response()->json(['success'=> false, 'error'=> 'Record Not Found!']);
         }
+    }
+
+    /**
+     * This method will get used vacation days for employee
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getEmployeeUsedVacationDays()
+    {
+        $daysUsed=0;
+        $record=VacationDays::getUsedVacationDaysForEmployee();
+        if(!is_null($record)){
+            $daysUsed=$record->days;
+        }
+        return response()->json(['success'=> true, 'vacation_days_used'=> $daysUsed]);
     }
 
 
